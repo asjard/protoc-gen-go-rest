@@ -34,6 +34,7 @@ import (
 const (
 	contextPackage = protogen.GoImportPath("context")
 	restPackage    = protogen.GoImportPath("github.com/asjard/asjard/pkg/server/rest")
+	serverPackage  = protogen.GoImportPath("github.com/asjard/asjard/core/server")
 	// restPackage    = protogen.GoImportPath("google.golang.org/grpc")
 	// codesPackage   = protogen.GoImportPath("google.golang.org/grpc/codes")
 	// statusPackage  = protogen.GoImportPath("google.golang.org/grpc/status")
@@ -391,12 +392,21 @@ func genServerMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	service := method.Parent
 	hname := fmt.Sprintf("_%s_%s_RestHandler", service.GoName, method.GoName)
 
-	g.P("func ", hnameFuncNameFormatter(hname), "(ctx *", restPackage.Ident("Context"), ", srv any) {")
-	g.P("ctx.ReadAndWrite(func (rc *", restPackage.Ident("Context"), ",in any) (any, error) {")
-	g.P("return srv.(", serverType, ").", method.GoName, "(rc, in.(*", method.Input.GoIdent, "))")
-	g.P("}, new(", method.Input.GoIdent, "))")
+	g.P("func ", hnameFuncNameFormatter(hname), "(ctx *", restPackage.Ident("Context"), ", srv any, interceptor ", serverPackage.Ident("UnaryServerInterceptor"), ") (any, error) {")
+	g.P("in := new(", method.Input.GoIdent, ")")
+	g.P("if interceptor == nil {")
+	g.P("return srv.(", serverType, ").", method.GoName, "(ctx, in)")
 	g.P("}")
-	g.P()
+	g.P("info := &", serverPackage.Ident("UnaryServerInfo"), "{")
+	g.P("Server: srv,")
+	g.P("FullMethod: ", service.GoName, "_", method.GoName, "_FullMethodName,")
+	g.P("Protocol: ", restPackage.Ident("Protocol"), ",")
+	g.P("}")
+	g.P("handler := func(ctx ", contextPackage.Ident("Context"), ",req any)(any, error) {")
+	g.P("return srv.(", serverType, ").", method.GoName, "(ctx, in)")
+	g.P("}")
+	g.P("return interceptor(ctx, in, info, handler)")
+	g.P("}")
 	return hname
 }
 
