@@ -399,7 +399,7 @@ func genServerMethod(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	g.P("}")
 	g.P("info := &", serverPackage.Ident("UnaryServerInfo"), "{")
 	g.P("Server: srv,")
-	g.P("FullMethod: ", service.GoName, "_", method.GoName, "_FullMethodName,")
+	g.P("FullMethod: \"", service.Desc.FullName(), ".", method.Desc.Name(), "\",")
 	g.P("Protocol: ", restPackage.Ident("Protocol"), ",")
 	g.P("}")
 	g.P("handler := func(ctx ", contextPackage.Ident("Context"), ",req any)(any, error) {")
