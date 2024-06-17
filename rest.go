@@ -316,7 +316,7 @@ func serverSignature(g *protogen.GeneratedFile, method *protogen.Method) string 
 	return method.GoName + "(" + strings.Join(reqArgs, ", ") + ") " + ret
 }
 
-func genServiceDesc(file *protogen.File, g *protogen.GeneratedFile, serviceDescVar string, serverType string, service *protogen.Service, handlerNames []string) {
+func genServiceDesc(_ *protogen.File, g *protogen.GeneratedFile, serviceDescVar string, serverType string, service *protogen.Service, handlerNames []string) {
 	// Service descriptor.
 	g.P("// ", serviceDescVar, " is the ", restPackage.Ident("ServiceDesc"), " for ", service.GoName, " service.")
 	g.P("// It's only intended for direct use with ", restPackage.Ident("AddHandler"), ",")
@@ -342,31 +342,42 @@ func genServiceDesc(file *protogen.File, g *protogen.GeneratedFile, serviceDescV
 		}
 		httpOptions, ok := proto.GetExtension(method.Desc.Options(), annotations.E_Http).([]*annotations.Http)
 		if ok {
-
 			for _, httpOption := range httpOptions {
 				g.P("{")
 				g.P("MethodName: ", strconv.Quote(string(method.Desc.Name())), ",")
-				g.P("Desc: \"", string(methodDesc), "\",")
+				g.P("Desc: ", strconv.Quote(string(methodDesc)), ",")
+				var optionMethod, optionPath string
 				switch httpOption.GetPattern().(type) {
 				case *annotations.Http_Get:
-					g.P("Method: \"", http.MethodGet, "\",")
-					g.P("Path: \"", httpOption.GetGet(), "\",")
+					optionMethod = http.MethodGet
+					optionPath = httpOption.GetGet()
 				case *annotations.Http_Put:
-					g.P("Method: \"", http.MethodPut, "\",")
-					g.P("Path: \"", httpOption.GetPut(), "\",")
+					optionMethod = http.MethodPut
+					optionPath = httpOption.GetPut()
 				case *annotations.Http_Post:
-					g.P("Method: \"", http.MethodPost, "\",")
-					g.P("Path: \"", httpOption.GetPost(), "\",")
+					optionMethod = http.MethodPost
+					optionPath = httpOption.GetPost()
 				case *annotations.Http_Delete:
-					g.P("Method: \"", http.MethodDelete, "\",")
-					g.P("Path: \"", httpOption.GetDelete(), "\",")
+					optionMethod = http.MethodDelete
+					optionPath = httpOption.GetDelete()
 				case *annotations.Http_Patch:
-					g.P("Method: \"", http.MethodPatch, "\",")
-					g.P("Path: \"", httpOption.GetPatch(), "\",")
+					optionMethod = http.MethodPatch
+					optionPath = httpOption.GetPatch()
 				case *annotations.Http_Head:
-					g.P("Method: \"", http.MethodHead, "\",")
-					g.P("Path: \"", httpOption.GetHead(), "\",")
+					optionMethod = http.MethodHead
+					optionPath = httpOption.GetHead()
 				}
+				g.P("Method:", strconv.Quote(optionMethod), ",")
+				// 根据package名称解析
+				// api.v1.xxx
+				// 第一部分为接口类型
+				// 第二部分为接口版本
+				serviceFullNameList := strings.Split(string(service.Desc.FullName()), ".")
+				if len(serviceFullNameList) < 2 {
+					panic("invalid package name")
+				}
+				fullPath := "/" + serviceFullNameList[0] + "/" + serviceFullNameList[1] + "/" + strings.TrimPrefix(optionPath, "/")
+				g.P("Path:", strconv.Quote(fullPath), ",")
 				g.P("Handler: ", handlerNames[i], ",")
 				g.P("},")
 			}
